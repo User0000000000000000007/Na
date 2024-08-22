@@ -55,7 +55,7 @@
 
 <div class="container">
     <div class="email-display" id="email">nayeemrezvan.business@gmail.com</div>
-    <button onclick="copyEmail()">Copy Email</button>
+    <button id="shower" onclick="copyEmail()">Copy Email</button>
 </div>
 
 <script>
@@ -67,7 +67,7 @@
         textarea.select();
         document.execCommand("copy");
         document.body.removeChild(textarea);
-        alert("Email copied: " + emailText);
+        document.getElementById("shower").innerHtml = "email copied";
     }
 </script>
 
