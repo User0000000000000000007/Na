@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Email Page</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #1e1e2f;
+            font-family: 'Poppins', sans-serif;
+            color: #dcdcdc;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(145deg, #22223b, #121220);
+            box-shadow: 10px 10px 20px #121220, -10px -10px 20px #292948;
+            border-radius: 20px;
+            max-width: 400px;
+        }
+        .email-display {
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #2e2e4f;
+            border: none;
+            border-radius: 10px;
+            color: #dcdcdc;
+            word-break: break-all;
+            user-select: all;
+            cursor: pointer;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #ff79c6;
+            color: #1e1e2f;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #ff92d0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="email-display" id="email">nayeemrezvan.business@gmail.com</div>
+    <button onclick="copyEmail()">Copy Email</button>
+</div>
+
+<script>
+    function copyEmail() {
+        const emailText = document.getElementById("email").textContent;
+        const textarea = document.createElement("textarea");
+        textarea.value = emailText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        alert("Email copied: " + emailText);
+    }
+</script>
+
+</body>
+</html>
+<script >
+  window.onload = function() {
+    window.location.href = "mailto:nayeemrezvan.business@gmail.com";
+};
+</script>
