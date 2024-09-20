@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en" onmousewheel="updateCandles();updateCandles();">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Candlestick Chart</title>
+    <style>
+        body {
+            height: 100vh;
+            background-color: #1b1b1b;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling if you don't want it */
+        }
+        canvas {
+            background-color: #222;
+            border-radius: 10px;
+            border: 1px solid #444;
+        }
+        .controls {
+            position: fixed;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .buy {
+            background-color: #4caf50;
+            color: white;
+        }
+        .sell {
+            background-color: #f44336;
+            color: white;
+        }
+        .retry {
+            background-color: #008cba;
+            color: white;
+        }
+        .status {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+        }
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="chart" width="900" height="500" style="position: fixed;top: 50%;left: 50%;transform: translate(-50%, -50%);"></canvas>
+
+    <div class="controls">
+        <button class="buy" onclick="buy()">Buy</button>
+        <button class="sell" onclick="sell()">Sell</button>
+        <button class="retry" onclick="retry()" id="retryButton" style="display: none;">Retry</button>
+    </div>
+
+    <div class="status">
+        <p id="statusMessage">Live P/L: $0</p>
+    </div>
+
+    <div class="popup" id="profitPopup">
+        <p id="profitMessage"></p>
+        <button class="retry" onclick="retry()">Retry</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
+
+        const candles = [];
+        let lastClosePrice = 67; // Starting price (e.g., $30,000)
+        let targetPrice = lastClosePrice; // Initial target price
+        const priceChangeSpeed = 0.5; // Speed of price change (0 to 1, where 1 is instant)
+        const volatility = 0.1; // Reduced volatility for stability
+        const candleWidth = 20;
+        const candleGap = 5;
+        const maxCandles = Math.floor(canvas.width / (candleWidth + candleGap));
+
+        // Trading variables
+        let hasPosition = false;
+        let buyPrice = 0;
+        let balance = 0;
+        let profit = 0;
+        let livePL = 0;
+
+        function getSmoothPriceChange() {
+            return (Math.random() - 0.5) * volatility * lastClosePrice;
+        }
+
+        function createCandle() {
+            const open = lastClosePrice;
+            const close = open + getSmoothPriceChange();
+            const high = Math.max(open, close) + (Math.random() * volatility * lastClosePrice);
+            const low = Math.min(open, close) - (Math.random() * volatility * lastClosePrice);
+            lastClosePrice = close;
+            return { open, close, high, low };
+        }
+
+        function drawCandles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw live price bar at the top
+            drawPriceBar();
+
+            candles.forEach((candle, index) => {
+                const x = index * (candleWidth + candleGap);
+                const yOpen = canvas.height - scalePrice(candle.open);
+                const yClose = canvas.height - scalePrice(candle.close);
+                const yHigh = canvas.height - scalePrice(candle.high);
+                const yLow = canvas.height - scalePrice(candle.low);
+                const radius = 4; // Rounded corners radius
+
+                // Draw wicks
+                ctx.strokeStyle = '#aaa';
+                ctx.beginPath();
+                ctx.moveTo(x + candleWidth / 2, yHigh);
+                ctx.lineTo(x + candleWidth / 2, yLow);
+                ctx.stroke();
+
+                // Draw rounded body
+                if (candle.close >= candle.open) {
+                    // Bullish candle (green)
+                    ctx.fillStyle = '#4caf50';
+                    roundedRect(ctx, x, yClose, candleWidth, yOpen - yClose, radius);
+                } else {
+                    // Bearish candle (red)
+                    ctx.fillStyle = '#f44336';
+                    roundedRect(ctx, x, yOpen, candleWidth, yClose - yOpen, radius);
+                }
+            });
+
+            // Update live P/L if a position is open
+            if (hasPosition) {
+                livePL = lastClosePrice - buyPrice;
+                updateLivePL();
+            }
+        }
+
+        function drawPriceBar() {
+            ctx.fillStyle = '#1b1b1b'; // Background color for the price bar
+            ctx.fillRect(0, 0, canvas.width, 30); // Draw the bar
+
+            ctx.font = '20px Arial';
+            ctx.fillStyle = lastClosePrice >= targetPrice ? '#4caf50' : '#f44336'; // Green for bullish, red for bearish
+            ctx.textAlign = 'center';
+            ctx.fillText(`Live Price: $${lastClosePrice.toFixed(2)}`, canvas.width / 2, 22); // Display the live price
+        }
+
+        function scalePrice(price) {
+            const minPrice = Math.min(...candles.map(c => c.low), lastClosePrice) * 0.95; // Adjusted scaling
+            const maxPrice = Math.max(...candles.map(c => c.high), lastClosePrice) * 1.05;
+            return ((price - minPrice) / (maxPrice - minPrice)) * canvas.height;
+        }
+
+        function updateCandles() {
+            candles.push(createCandle());
+            if (candles.length > maxCandles) {
+                candles.shift(); // Remove the oldest candle
+            }
+            drawCandles();document.getElementById('profitPopup').style.display = 'none';
+            document.getElementById('retryButton').style.display = 'none';
+
+        }
+
+        function handleScroll(event) {
+            const priceChange = event.deltaY > 0 ? 500 : -500; // More noticeable price change
+            targetPrice = lastClosePrice + priceChange; // Set new target price
+        }
+
+        function animatePriceChange() {
+            if (Math.abs(lastClosePrice - targetPrice) > 0.1) {
+                lastClosePrice += (targetPrice - lastClosePrice) * priceChangeSpeed; // Gradually adjust price
+                updateCandles();
+            }
+        }
+
+        // Buy function
+        function buy() {
+            if (!hasPosition) {
+                buyPrice = lastClosePrice;
+                hasPosition = true;
+                updateStatusMessage();
+            } else {
+                alert('You already have a position. Sell first before buying again.');
+            }
+        }
+
+        // Sell function
+        function sell() {
+            if (hasPosition) {
+                profit = lastClosePrice - buyPrice;
+                balance += profit;
+                hasPosition = false;
+
+                // Show profit or loss in a popup
+                const profitPopup = document.getElementById('profitPopup');
+                const profitMessage = document.getElementById('profitMessage');
+                profitMessage.textContent = `You made a ${profit >= 0 ? 'profit' : 'loss'} of ${profit.toFixed(2)}$.`;
+                profitPopup.style.display = 'block';
+
+                // Show the retry button
+                const retryButton = document.getElementById('retryButton');
+                retryButton.style.display = 'block';
+
+                updateStatusMessage();
+            } else {
+                alert('You have no position to sell.');
+            }
+        }
+
+        // Retry function: Clears the chart and starts over
+        function retry() {
+            candles.length = 0; // Clear all candles
+            lastClosePrice = 67; // Reset price
+            targetPrice = lastClosePrice;
+            balance = 0;
+            profit = 0;
+            livePL = 0;
+
+            // Hide the popup and retry button
+            document.getElementById('profitPopup').style.display = 'none';
+            document.getElementById('retryButton').style.display = 'none';
+
+            updateStatusMessage();
+            updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();
+        }
+
+        // Update the live P/L color based on profit or loss
+        function updateLivePL() {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = `Live P/L: $${livePL.toFixed(2)}`;
+            statusMessage.style.color = livePL >= 0 ? '#4caf50' : '#f44336';
+        }
+
+        // Function to update the status message with the current balance and live P/L
+        function updateStatusMessage() {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = `Balance: $${balance.toFixed(2)} | Live P/L: $${livePL.toFixed(2)}`;
+        }
+
+        // Function to draw a rectangle with rounded corners
+        function roundedRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+        }
+        updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();updateCandles();
+
+        window.addEventListener('mousewheel', handleScroll);
+    </script>
+</body>
+</html>
